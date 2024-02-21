@@ -4,7 +4,7 @@ OpenSearch API
 
 import requests
 
-from config import OPENSEARCH_HOST
+from config import OPENAI_API_KEY, OPENSEARCH_HOST
 
 
 def request(method: str, path: str, **kwargs):
@@ -317,3 +317,96 @@ def unload_model(model_id: str):
         "post",
         f"_plugins/_ml/models/{model_id}/_unload",
     )
+
+
+def create_openai_connector():
+    """
+    Create an OpenAI connector in the OpenSearch service
+    """
+    return request(
+        "post",
+        "_plugins/_ml/connectors/_create",
+        json={
+            "name": "openai-embeddings",
+            "description": "OpenAI Embeddings",
+            "version": "1",
+            "protocol": "http",
+            "parameters": {
+                "model": "text-embedding-ada-002"
+            },
+            "credential": {
+                "openAI_key": OPENAI_API_KEY,
+            },
+            "actions": [
+                {
+                    "action_type": "predict",
+                    "method": "POST",
+                    "url": "https://api.openai.com/v1/embeddings",
+                    "headers": {
+                        "Authorization": "Bearer ${credential.openAI_key}"
+                    },
+                    "request_body": "{ \"input\": ${parameters.input}, \"model\": \"${parameters.model}\" }",
+                    "pre_process_function": "connector.pre_process.openai.embedding",
+                    "post_process_function": "connector.post_process.openai.embedding"
+                },
+            ],
+        }
+    )
+
+
+def update_trusted_endpoints():
+    """
+    Update the trusted endpoints in the OpenSearch service
+    """
+    return request(
+        "put",
+        "_cluster/settings",
+        json={
+            "persistent": {
+                "plugins.ml_commons.trusted_connector_endpoints_regex": [
+                    "^https://api\\.openai\\.com/.*$",
+                ]
+            }
+        }
+    )
+
+
+def register_model_group():
+    """
+    Register a model group in the OpenSearch service
+    """
+    return request(
+        "post",
+        "_plugins/_ml/model_groups/_register",
+        json={
+            "name": "remote_model_group",
+            "description": "A model group for external models",
+        }
+    )
+
+
+def register_model(model_group_id: str, connector_id: str):
+    """
+    Register a model in the OpenSearch service
+    """
+    return ml_task(request(
+        "post",
+        "_plugins/_ml/models/_register",
+        json={
+            "name": "openAI-text-embedding-ada-002",
+            "function_name": "remote",
+            "model_group_id": model_group_id,
+            "description": "OpenAI Text Embedding Ada 002",
+            "connector_id": connector_id,
+        }
+    ))
+
+
+def deploy_model(model_id: str):
+    """
+    Deploy a model in the OpenSearch service
+    """
+    return ml_task(request(
+        "post",
+        f"_plugins/_ml/models/{model_id}/_deploy",
+    ))
