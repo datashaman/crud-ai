@@ -1,0 +1,4 @@
+openai
+openai-function-calling
+python-dotenv
+requests
