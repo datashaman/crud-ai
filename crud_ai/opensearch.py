@@ -2,10 +2,9 @@
 OpenSearch API
 """
 
-import json
 import requests
 
-from .config import OPENSEARCH_HOST
+from config import OPENSEARCH_HOST
 
 
 def request(method: str, path: str, **kwargs):
@@ -13,7 +12,7 @@ def request(method: str, path: str, **kwargs):
     Make a request to the OpenSearch service
     """
     url = f"{OPENSEARCH_HOST}/{path}"
-    response = requests.request(method, url, **kwargs)
+    response = requests.request(method, url, timeout=30, **kwargs)
     return response.json()
 
 
@@ -29,7 +28,7 @@ def search_documents(
     """
     Search for documents in the OpenSearch index
     """
-    json = {
+    payload = {
         "query": {
             "bool": {
                 "should": [],
@@ -39,9 +38,9 @@ def search_documents(
         "from": from_,
     }
     if filters:
-        json["query"]["bool"]["filter"] = filters
+        payload["query"]["bool"]["filter"] = filters
     if model_id:
-        json["query"]["bool"]["should"].append(
+        payload["query"]["bool"]["should"].append(
             {
                 "neural": {
                     "embedding": {
@@ -53,14 +52,14 @@ def search_documents(
             }
         )
     else:
-        json["query"]["bool"]["should"].append(
+        payload["query"]["bool"]["should"].append(
             {
                 "match": {
                     "content": query,
                 },
             }
         )
-    return request("get", f"{index}/_search", json=json)
+    return request("get", f"{index}/_search", json=payload)
 
 
 def get_document(id_: str, index: str = "documents"):
@@ -73,7 +72,7 @@ def get_document(id_: str, index: str = "documents"):
 def index_document(
     id_: str,
     content: str,
-    contentType: str = "text/plain",
+    content_type: str = "text/plain",
     meta: dict = None,
     index: str = "documents",
     pipeline: str = None,
@@ -90,7 +89,7 @@ def index_document(
         params=params,
         json={
             "content": content,
-            "contentType": contentType,
+            "content_type": content_type,
             "meta": meta or {},
         },
     )
@@ -101,15 +100,6 @@ def delete_document(id_: str, index: str = "documents"):
     Delete a document from the OpenSearch index
     """
     return request("delete", f"{index}/_doc/{id_}")
-
-
-def read_document(id_: str):
-    """
-    Read a document from the filesystem
-    """
-    filename = f"documents/{id_}.json"
-    with open(filename, "r") as file:
-        return json.load(file)
 
 
 def update_pipeline(id_: str, model_id: str):
@@ -161,14 +151,14 @@ def update_index_template(
             "index_patterns": ["documents*"],
             "settings": {
                 "default_pipeline": default_pipeline,
-                "index.knn": true,
+                "index.knn": True,
                 "number_of_shards": 1,
                 "number_of_replicas": 0,
             },
             "mappings": {
                 "properties": {
                     "content": {"type": "text"},
-                    "contentType": {"type": "keyword"},
+                    "content_type": {"type": "keyword"},
                     "embedding": {
                         "type": "knn_vector",
                         "dimension": dimension,
@@ -202,7 +192,7 @@ def upload_model(
     """
     return request(
         "post",
-        f"_plugins/_ml/models/_upload",
+        "_plugins/_ml/models/_upload",
         json={
             "name": name,
             "version": version,
