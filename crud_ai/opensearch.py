@@ -184,20 +184,49 @@ def delete_index_template(id_: str):
     return request("delete", f"_index_template/{id_}")
 
 
+def ml_task(task: dict):
+    """
+    Handle a task from the OpenSearch ML service
+    """
+    task_id = task["task_id"]
+
+    while True:
+        task = request("get", f"_plugins/_ml/tasks/{task_id}")
+
+        if task["state"] == "COMPLETED":
+            return task
+
+        raise Exception(f"Unknown task state: {task}")
+
+
 def upload_model(
     name: str, version: str, model_format: str, model_config: dict, url: str
 ):
     """
     Upload a model to the OpenSearch service
     """
-    return request(
-        "post",
-        "_plugins/_ml/models/_upload",
-        json={
-            "name": name,
-            "version": version,
-            "model_format": model_format,
-            "model_config": model_config,
-            "url": url,
-        },
+    return ml_task(
+        request(
+            "post",
+            "_plugins/_ml/models/_upload",
+            json={
+                "name": name,
+                "version": version,
+                "model_format": model_format,
+                "model_config": model_config,
+                "url": url,
+            },
+        )
+    )
+
+
+def load_model(model_id: str):
+    """
+    Load a model in the OpenSearch service
+    """
+    return ml_task(
+        request(
+            "post",
+            f"_plugins/_ml/models/{model_id}/_load",
+        )
     )
