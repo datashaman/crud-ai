@@ -230,3 +230,13 @@ def load_model(model_id: str):
             f"_plugins/_ml/models/{model_id}/_load",
         )
     )
+
+
+def unload_model(model_id: str):
+    """
+    Unload a model from the OpenSearch service
+    """
+    return request(
+        "post",
+        f"_plugins/_ml/models/{model_id}/_unload",
+    )
