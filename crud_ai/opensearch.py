@@ -16,7 +16,37 @@ def request(method: str, path: str, **kwargs):
     return response.json()
 
 
-def search_documents(
+def search_query(
+    query: str,
+    filters: dict = None,
+    index: str = "documents",
+    size: int = 10,
+    from_: int = 0,
+):
+    """
+    Search for documents in the OpenSearch index using full text search
+    """
+    payload = {
+        "query": {
+            "bool": {
+                "should": [
+                    {
+                        "match": {
+                            "content": query,
+                        },
+                    }
+                ],
+            },
+        },
+        "size": size,
+        "from": from_,
+    }
+    if filters:
+        payload["query"]["bool"]["filter"] = filters
+    return request("get", f"{index}/_search", json=payload)
+
+
+def search_neural(
     query: str,
     filters: dict = None,
     index: str = "documents",
@@ -26,12 +56,22 @@ def search_documents(
     k: int = 10,
 ):
     """
-    Search for documents in the OpenSearch index
+    Search for documents in the OpenSearch index using neural search
     """
     payload = {
         "query": {
             "bool": {
-                "should": [],
+                "should": [
+                    {
+                        "neural": {
+                            "embedding": {
+                                "query_text": query,
+                                "model": model_id,
+                                "k": k,
+                            },
+                        },
+                    }
+                ],
             },
         },
         "size": size,
@@ -39,26 +79,63 @@ def search_documents(
     }
     if filters:
         payload["query"]["bool"]["filter"] = filters
-    if model_id:
-        payload["query"]["bool"]["should"].append(
-            {
-                "neural": {
-                    "embedding": {
-                        "query_text": query,
-                        "model": model_id,
-                        "k": k,
+    return request("get", f"{index}/_search", json=payload)
+
+
+def search_combined(
+    query: str,
+    filters: dict = None,
+    index: str = "documents",
+    size: int = 10,
+    from_: int = 0,
+    model_id: str = None,
+    k: int = 10,
+    fts_score: float = 1.0,
+    neural_score: float = 1.0,
+):
+    """
+    Search for documents in the OpenSearch index using full text search and neural search
+    """
+    payload = {
+        "query": {
+            "bool": {
+                "should": [
+                    {
+                        "script_score": {
+                            "query": {
+                                "match": {
+                                    "content": query,
+                                },
+                            },
+                            "script": {
+                                "source": f"_score * {fts_score}",
+                            },
+                        },
                     },
-                },
-            }
-        )
-    else:
-        payload["query"]["bool"]["should"].append(
-            {
-                "match": {
-                    "content": query,
-                },
-            }
-        )
+                    {
+                        "script_score": {
+                            "query": {
+                                "neural": {
+                                    "embedding": {
+                                        "query_text": query,
+                                        "model": model_id,
+                                        "k": k,
+                                    },
+                                },
+                            },
+                            "script": {
+                                "source": f"_score * {neural_score}",
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+        "size": size,
+        "from": from_,
+    }
+    if filters:
+        payload["query"]["bool"]["filter"] = filters
     return request("get", f"{index}/_search", json=payload)
 
 
