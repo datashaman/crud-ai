@@ -7,6 +7,19 @@ import requests
 from .config import OPENSEARCH_HOST
 
 
+def request(
+    method: str,
+    path: str,
+    **kwargs
+):
+    """
+    Make a request to the OpenSearch service
+    """
+    url = f'{OPENSEARCH_HOST}/{path}'
+    response = requests.request(method, url, **kwargs)
+    return response.json()
+
+
 def search_documents(
     query: str,
     filters: dict = None,
@@ -17,8 +30,7 @@ def search_documents(
     """
     Search for documents in the OpenSearch index
     """
-    url = f'{OPENSEARCH_HOST}/{index}/_search'
-    response = requests.get(url, json={
+    return request('get', f'{index}/_search', json={
         "query": {
             "bool": {
                 "should": [
@@ -34,16 +46,13 @@ def search_documents(
         "size": size,
         "from": from_,
     })
-    return response.json()
 
 
 def get_document(id_: str, index: str = 'documents'):
     """
     Get a document from the OpenSearch index
     """
-    url = f'{OPENSEARCH_HOST}/{index}/_doc/{id_}'
-    response = requests.get(url)
-    return response.json()
+    return request('get', f'{index}/_doc/{id_}')
 
 
 def index_document(
@@ -57,25 +66,21 @@ def index_document(
     """
     Index a document in the OpenSearch index
     """
-    url = f'{OPENSEARCH_HOST}/{index}/_doc/{id_}'
     params = {}
     if pipeline:
         params['pipeline'] = pipeline
-    response = requests.put(url, params=params, json={
+    return request('put', f'{index}/_doc/{id_}', params=params, json={
         "content": content,
         "contentType": contentType,
         "meta": meta or {},
     })
-    return response.json()
 
 
 def delete_document(id_: str, index: str = 'documents'):
     """
     Delete a document from the OpenSearch index
     """
-    url = f'{OPENSEARCH_HOST}/{index}/_doc/{id_}'
-    response = requests.delete(url)
-    return response.json()
+    return request('delete', f'{index}/_doc/{id_}')
 
 
 def read_document(id_: str):
@@ -91,8 +96,7 @@ def update_pipeline(id_: str, model_id: str):
     """
     Update a pipeline in the OpenSearch service
     """
-    url = f'{OPENSEARCH_HOST}/_ingest/pipeline/{id_}'
-    json = {
+    return request('put', f'_ingest/pipeline/{id_}', json={
         "description": "Extract embeddings from content",
         "processors": [
             {
@@ -104,18 +108,14 @@ def update_pipeline(id_: str, model_id: str):
                 },
             },
         ],
-    }
-    response = requests.put(url, json=json)
-    return response.json()
+    })
 
 
 def delete_pipeline(id_: str):
     """
     Delete a pipeline from the OpenSearch service
     """
-    url = f'{OPENSEARCH_HOST}/_ingest/pipeline/{id_}'
-    response = requests.delete(url)
-    return response.json()
+    return request('delete', f'_ingest/pipeline/{id_}')
 
 
 def update_index_template(
@@ -130,8 +130,7 @@ def update_index_template(
     """
     Update or create an index template in the OpenSearch service
     """
-    url = f'{OPENSEARCH_HOST}/_index_template/{id_}'
-    json = {
+    return request('put', f'_index_template/{id_}', json={
         "index_patterns": ["documents*"],
         "settings": {
             "default_pipeline": default_pipeline,
@@ -165,18 +164,14 @@ def update_index_template(
                 }
             }
         }
-    }
-    response = requests.put(url, json=template)
-    return response.json()
+    })
 
 
 def delete_index_template(id_: str):
     """
     Delete an index template from the OpenSearch service
     """
-    url = f'{OPENSEARCH_HOST}/_index_template/{id_}'
-    response = requests.delete(url)
-    return response.json()
+    return request('delete', f'_index_template/{id_}')
 
 
 def upload_model(
@@ -189,15 +184,10 @@ def upload_model(
     """
     Upload a model to the OpenSearch service
     """
-    url = f'{OPENSEARCH_HOST}/_plugins/_ml/models/_upload'
-
-    json = {
+    return request('post', f'_plugins/_ml/models/_upload', json={
         "name": name,
         "version": version,
         "model_format": model_format,
         "model_config": model_config,
         "url": url,
-    }
-
-    response = requests.post(url, json=json)
-    return response.json()
+    })
