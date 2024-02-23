@@ -4,7 +4,7 @@ OpenSearch API
 
 import requests
 
-from crud_ai.config import OPENAI_API_KEY, OPENSEARCH_HOST
+from crud_ai.config import OPENSEARCH_HOST
 
 
 def request(method: str, path: str, **kwargs):
@@ -179,9 +179,9 @@ def delete_document(id: str, index: str = "documents"):
     return request("delete", f"{index}/_doc/{id}")
 
 
-def update_pipeline(id: str, model_id: str):
+def embedding_pipeline(id: str, model_id: str):
     """
-    Update a pipeline in the OpenSearch service
+    Create an embedding pipeline in the OpenSearch service
     """
     return request(
         "put",
@@ -209,23 +209,26 @@ def delete_pipeline(id: str):
     return request("delete", f"_ingest/pipeline/{id}")
 
 
-def update_index_template(
+def embedding_template(
     id: str,
     default_pipeline: str,
-    dimension: int,
-    name: str,
-    space_type: str,
-    engine: str,
-    parameters: dict,
+    dimension: int = 768,
+    name: str = "hnsw",
+    space_type: str = "l2",
+    engine: str = "lucene",
+    parameters: dict = None,
+    index_patterns: list = ["documents*"],
 ):
     """
     Update or create an index template in the OpenSearch service
     """
+    parameters = parameters or {}
+
     return request(
         "put",
-        f"_index_template/{id}",
+        f"_template/{id}",
         json={
-            "index_patterns": ["documents*"],
+            "index_patterns": index_patterns,
             "settings": {
                 "default_pipeline": default_pipeline,
                 "index.knn": True,
@@ -319,7 +322,7 @@ def unload_model(model_id: str):
     )
 
 
-def create_openai_connector():
+def create_openai_connector(api_key: str):
     """
     Create an OpenAI connector in the OpenSearch service
     """
@@ -335,7 +338,7 @@ def create_openai_connector():
                 "model": "text-embedding-ada-002"
             },
             "credential": {
-                "openAI_key": OPENAI_API_KEY,
+                "api_key": api_key,
             },
             "actions": [
                 {
@@ -343,7 +346,7 @@ def create_openai_connector():
                     "method": "POST",
                     "url": "https://api.openai.com/v1/embeddings",
                     "headers": {
-                        "Authorization": "Bearer ${credential.openAI_key}"
+                        "Authorization": "Bearer ${credential.api_key}"
                     },
                     "request_body": "{ \"input\": ${parameters.input}, \"model\": \"${parameters.model}\" }",
                     "pre_process_function": "connector.pre_process.openai.embedding",
@@ -371,7 +374,7 @@ def update_trusted_endpoints():
     )
 
 
-def register_model_group():
+def register_model_group(name: str, description: str):
     """
     Register a model group in the OpenSearch service
     """
@@ -379,13 +382,47 @@ def register_model_group():
         "post",
         "_plugins/_ml/model_groups/_register",
         json={
-            "name": "remote_model_group",
-            "description": "A model group for external models",
+            "name": name,
+            "description": description,
         }
     )
 
 
-def register_model(model_group_id: str, connector_id: str):
+def search_model_groups(name: str = None):
+    """
+    Search for model groups in the OpenSearch service
+    """
+    if name:
+        query = {
+            "match": {
+                "name": name,
+            },
+        }
+    else:
+        query = {
+            "match_all": {},
+        }
+
+    return request(
+        "get",
+        "_plugins/_ml/model_groups/_search",
+        json={
+            "query": query,
+        }
+    )
+
+
+def delete_model_group(id: str):
+    """
+    Delete a model group from the OpenSearch service
+    """
+    return request(
+        "delete",
+        f"_plugins/_ml/model_groups/{id}"
+    )
+
+
+def register_model(name: str, description: str, model_group_id: str, connector_id: str):
     """
     Register a model in the OpenSearch service
     """
@@ -393,10 +430,10 @@ def register_model(model_group_id: str, connector_id: str):
         "post",
         "_plugins/_ml/models/_register",
         json={
-            "name": "openAI-text-embedding-ada-002",
+            "name": name,
             "function_name": "remote",
             "model_group_id": model_group_id,
-            "description": "OpenAI Text Embedding Ada 002",
+            "description": description,
             "connector_id": connector_id,
         }
     ))
@@ -410,3 +447,45 @@ def deploy_model(model_id: str):
         "post",
         f"_plugins/_ml/models/{model_id}/_deploy",
     ))
+
+
+def undeploy_model(model_id: str):
+    """
+    Undeploy a model from the OpenSearch service
+    """
+    return request(
+        "post",
+        f"_plugins/_ml/models/{model_id}/_undeploy",
+    )
+
+
+def search_models():
+    """
+    Search for models in the OpenSearch service
+    """
+    return request(
+        "get",
+        "_plugins/_ml/models/_search",
+        json={
+            "query": {
+                "match_all": {},
+            }
+        }
+    )
+
+
+def delete_model(id: str):
+    """
+    Delete a model from the OpenSearch service
+    """
+    return request(
+        "delete",
+        f"_plugins/_ml/models/{id}"
+    )
+
+
+def delete_index(index: str):
+    """
+    Delete an index from the OpenSearch service
+    """
+    return request("delete", index)

@@ -1,147 +1,76 @@
-from crud_ai.opensearch import index_document
+import os
+import sys
+import time
 
-documents = [
-    {
-        "id": "1",
-        "content": "This is a test article about cats.",
-        "meta": {
-            "category": "mammals"
-        },
-    },
-    {
-        "id": "2",
-        "content": "This is a test article about dogs.",
-        "meta": {
-            "category": "mammals"
-        },
-    },
-    {
-        "id": "3",
-        "content": "This is a test article about birds.",
-        "meta": {
-            "category": "birds"
-        },
-    },
-    {
-        "id": "4",
-        "content": "This is a test article about fish.",
-        "meta": {
-            "category": "fish"
-        },
-    },
-    {
-        "id": "5",
-        "content": "This is a test article about horses.",
-        "meta": {
-            "category": "mammals"
-        },
-    },
-    {
-        "id": "6",
-        "content": "This is a test article about cows.",
-        "meta": {
-            "category": "mammals"
-        },
-    },
-    {
-        "id": "7",
-        "content": "This is a test article about pigs.",
-        "meta": {
-            "category": "mammals"
-        },
-    },
-    {
-        "id": "8",
-        "content": "This is a test article about chickens.",
-        "meta": {
-            "category": "birds"
-        },
-    },
-    {
-        "id": "9",
-        "content": "This is a test article about sheep.",
-        "meta": {
-            "category": "mammals"
-        },
-    },
-    {
-        "id": "10",
-        "content": "This is a test article about goats.",
-        "meta": {
-            "category": "mammals"
-        },
-    },
-    {
-        "id": "11",
-        "content": "This is a test article about lizards.",
-        "meta": {
-            "category": "reptiles"
-        },
-    },
-    {
-        "id": "12",
-        "content": "This is a test article about snakes.",
-        "meta": {
-            "category": "reptiles"
-        },
-    },
-    {
-        "id": "13",
-        "content": "This is a test article about turtles.",
-        "meta": {
-            "category": "reptiles"
-        },
-    },
-    {
-        "id": "14",
-        "content": "This is a test article about alligators.",
-        "meta": {
-            "category": "reptiles"
-        },
-    },
-    {
-        "id": "15",
-        "content": "This is a test article about crocodiles.",
-        "meta": {
-            "category": "reptiles"
-        },
-    },
-    {
-        "id": "16",
-        "content": "This is a test article about frogs.",
-        "meta": {
-            "category": "amphibians"
-        },
-    },
-    {
-        "id": "17",
-        "content": "This is a test article about toads.",
-        "meta": {
-            "category": "amphibians"
-        },
-    },
-    {
-        "id": "18",
-        "content": "This is a test article about salamanders.",
-        "meta": {
-            "category": "amphibians"
-        },
-    },
-    {
-        "id": "19",
-        "content": "This is a test article about newts.",
-        "meta": {
-            "category": "amphibians"
-        },
-    },
-    {
-        "id": "20",
-        "content": "This is a test article about caecilians.",
-        "meta": {
-            "category": "amphibians"
-        },
-    },
-]
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from documents.animals import documents
+
+from crud_ai.opensearch import (
+    create_openai_connector,
+    delete_index,
+    delete_model,
+    delete_model_group,
+    deploy_model,
+    embedding_pipeline,
+    embedding_template,
+    index_document,
+    register_model,
+    register_model_group,
+    search_models,
+    search_model_groups,
+    undeploy_model,
+    update_trusted_endpoints,
+)
+
+response = search_models()
+
+if response['hits']['total']['value']:
+    for hit in response['hits']['hits']:
+        print(hit)
+
+        model_id = hit['_id']
+        response = undeploy_model(model_id)
+        response = delete_model(model_id)
+        print(response)
+        time.sleep(1)
+
+update_trusted_endpoints()
+
+response = search_model_groups("remote-models")
+
+if response['hits']['total']['value']:
+    model_group_id = response['hits']['hits'][0]['_id']
+    response = delete_model_group(model_group_id)
+    print(response)
+    time.sleep(1)
+
+response = register_model_group("remote-models", "A remote model group")
+
+if response['status'] != 'CREATED':
+    print(response)
+    sys.exit(1)
+
+model_group_id = response['model_group_id']
+
+response = create_openai_connector(os.environ.get('OPENAI_API_KEY'))
+connector_id = response['connector_id']
+
+response = register_model('openai-text-embedding-ada-002', 'Embedding model', model_group_id, connector_id)
+print(response)
+model_id = response['model_id']
+
+response = deploy_model(model_id)
+print(response)
+
+embedding_pipeline('embedding', model_id)
+
+embedding_template('embedding', 'embedding')
+
+delete_index('documents*')
 
 for document in documents:
-    index_document(**document)
+    response = index_document(**document)
+    print(response)
