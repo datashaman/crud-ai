@@ -1,177 +1,147 @@
-import chromadb
+from crud_ai.opensearch import index_document
 
-
-chroma_client = chromadb.Client()
-
-
-def get_collection(name):
-    return chroma_client.get_or_create_collection(name=name)
-
-
-def add_items(collection: str, items: list):
-    """
-    Adds items to a collection.
-    """
-    get_collection(collection).upsert(
-        documents=[i['content'] for i in items],
-        metadatas=[i['metadata'] for i in items],
-        ids=[i['id'] for i in items]
-    )
-
-
-def search(collection: str, query: str, number: int = 10, threshold: float = 0.5):
-    """
-    Returns items similar to the query.
-    """
-    return get_collection(collection).query(
-        query_texts=[query],
-        n_results=number
-    )
-
-
-items = [
+documents = [
     {
         "id": "1",
         "content": "This is a test article about cats.",
-        "metadata": {
+        "meta": {
             "category": "mammals"
         },
     },
     {
         "id": "2",
         "content": "This is a test article about dogs.",
-        "metadata": {
+        "meta": {
             "category": "mammals"
         },
     },
     {
         "id": "3",
         "content": "This is a test article about birds.",
-        "metadata": {
+        "meta": {
             "category": "birds"
         },
     },
     {
         "id": "4",
         "content": "This is a test article about fish.",
-        "metadata": {
+        "meta": {
             "category": "fish"
         },
     },
     {
         "id": "5",
         "content": "This is a test article about horses.",
-        "metadata": {
+        "meta": {
             "category": "mammals"
         },
     },
     {
         "id": "6",
         "content": "This is a test article about cows.",
-        "metadata": {
+        "meta": {
             "category": "mammals"
         },
     },
     {
         "id": "7",
         "content": "This is a test article about pigs.",
-        "metadata": {
+        "meta": {
             "category": "mammals"
         },
     },
     {
         "id": "8",
         "content": "This is a test article about chickens.",
-        "metadata": {
+        "meta": {
             "category": "birds"
         },
     },
     {
         "id": "9",
         "content": "This is a test article about sheep.",
-        "metadata": {
+        "meta": {
             "category": "mammals"
         },
     },
     {
         "id": "10",
         "content": "This is a test article about goats.",
-        "metadata": {
+        "meta": {
             "category": "mammals"
         },
     },
     {
         "id": "11",
         "content": "This is a test article about lizards.",
-        "metadata": {
+        "meta": {
             "category": "reptiles"
         },
     },
     {
         "id": "12",
         "content": "This is a test article about snakes.",
-        "metadata": {
+        "meta": {
             "category": "reptiles"
         },
     },
     {
         "id": "13",
         "content": "This is a test article about turtles.",
-        "metadata": {
+        "meta": {
             "category": "reptiles"
         },
     },
     {
         "id": "14",
         "content": "This is a test article about alligators.",
-        "metadata": {
+        "meta": {
             "category": "reptiles"
         },
     },
     {
         "id": "15",
         "content": "This is a test article about crocodiles.",
-        "metadata": {
+        "meta": {
             "category": "reptiles"
         },
     },
     {
         "id": "16",
         "content": "This is a test article about frogs.",
-        "metadata": {
+        "meta": {
             "category": "amphibians"
         },
     },
     {
         "id": "17",
         "content": "This is a test article about toads.",
-        "metadata": {
+        "meta": {
             "category": "amphibians"
         },
     },
     {
         "id": "18",
         "content": "This is a test article about salamanders.",
-        "metadata": {
+        "meta": {
             "category": "amphibians"
         },
     },
     {
         "id": "19",
         "content": "This is a test article about newts.",
-        "metadata": {
+        "meta": {
             "category": "amphibians"
         },
     },
     {
         "id": "20",
         "content": "This is a test article about caecilians.",
-        "metadata": {
+        "meta": {
             "category": "amphibians"
         },
     },
 ]
 
-add_items("articles", items)
-
-# print(similar('articles', 'reptiles', 1))
+for document in documents:
+    index_document(**document)

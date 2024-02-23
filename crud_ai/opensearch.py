@@ -4,7 +4,7 @@ OpenSearch API
 
 import requests
 
-from config import OPENAI_API_KEY, OPENSEARCH_HOST
+from crud_ai.config import OPENAI_API_KEY, OPENSEARCH_HOST
 
 
 def request(method: str, path: str, **kwargs):
@@ -139,15 +139,15 @@ def search_combined(
     return request("get", f"{index}/_search", json=payload)
 
 
-def get_document(id_: str, index: str = "documents"):
+def get_document(id: str, index: str = "documents"):
     """
     Get a document from the OpenSearch index
     """
-    return request("get", f"{index}/_doc/{id_}")
+    return request("get", f"{index}/_doc/{id}")
 
 
 def index_document(
-    id_: str,
+    id: str,
     content: str,
     content_type: str = "text/plain",
     meta: dict = None,
@@ -162,7 +162,7 @@ def index_document(
         params["pipeline"] = pipeline
     return request(
         "put",
-        f"{index}/_doc/{id_}",
+        f"{index}/_doc/{id}",
         params=params,
         json={
             "content": content,
@@ -172,20 +172,20 @@ def index_document(
     )
 
 
-def delete_document(id_: str, index: str = "documents"):
+def delete_document(id: str, index: str = "documents"):
     """
     Delete a document from the OpenSearch index
     """
-    return request("delete", f"{index}/_doc/{id_}")
+    return request("delete", f"{index}/_doc/{id}")
 
 
-def update_pipeline(id_: str, model_id: str):
+def update_pipeline(id: str, model_id: str):
     """
     Update a pipeline in the OpenSearch service
     """
     return request(
         "put",
-        f"_ingest/pipeline/{id_}",
+        f"_ingest/pipeline/{id}",
         json={
             "description": "Extract embeddings from content",
             "processors": [
@@ -202,15 +202,15 @@ def update_pipeline(id_: str, model_id: str):
     )
 
 
-def delete_pipeline(id_: str):
+def delete_pipeline(id: str):
     """
     Delete a pipeline from the OpenSearch service
     """
-    return request("delete", f"_ingest/pipeline/{id_}")
+    return request("delete", f"_ingest/pipeline/{id}")
 
 
 def update_index_template(
-    id_: str,
+    id: str,
     default_pipeline: str,
     dimension: int,
     name: str,
@@ -223,7 +223,7 @@ def update_index_template(
     """
     return request(
         "put",
-        f"_index_template/{id_}",
+        f"_index_template/{id}",
         json={
             "index_patterns": ["documents*"],
             "settings": {
@@ -254,11 +254,11 @@ def update_index_template(
     )
 
 
-def delete_index_template(id_: str):
+def delete_index_template(id: str):
     """
     Delete an index template from the OpenSearch service
     """
-    return request("delete", f"_index_template/{id_}")
+    return request("delete", f"_index_template/{id}")
 
 
 def ml_task(task: dict):
