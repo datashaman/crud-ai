@@ -268,12 +268,15 @@ def ml_task(task: dict):
     """
     Handle a task from the OpenSearch ML service
     """
+    if task['status'] == 'COMPLETED':
+        return task
+
     task_id = task["task_id"]
 
     while True:
         task = request("get", f"_plugins/_ml/tasks/{task_id}")
 
-        if task["state"] == "COMPLETED":
+        if task["state"] in ["COMPLETED", "FAILED", "CREATED"]:
             return task
 
         raise Exception(f"Unknown task state: {task}")
@@ -322,20 +325,51 @@ def unload_model(model_id: str):
     )
 
 
-def create_openai_connector(api_key: str):
+def search_connectors(name: str = None):
+    """
+    Search for connectors in the OpenSearch service
+    """
+    if name:
+        query = {
+            "match": {
+                "name": name,
+            },
+        }
+    else:
+        query = {
+            "match_all": {},
+        }
+
+    return request(
+        "get",
+        "_plugins/_ml/connectors/_search",
+        json={
+            "query": query,
+        }
+    )
+
+
+def create_openai_connector(name: str, api_key: str, organization_id: str = None, model: str = 'text-embedding-3-small'):
     """
     Create an OpenAI connector in the OpenSearch service
     """
+    headers = {
+        "Authorization": "Bearer ${credential.api_key}",
+    }
+
+    if organization_id:
+        headers["OpenAI-Organization"] = organization_id
+
     return request(
         "post",
         "_plugins/_ml/connectors/_create",
         json={
-            "name": "openai-embeddings",
+            "name": name,
             "description": "OpenAI Embeddings",
             "version": "1",
             "protocol": "http",
             "parameters": {
-                "model": "text-embedding-ada-002"
+                "model": model,
             },
             "credential": {
                 "api_key": api_key,
@@ -345,9 +379,7 @@ def create_openai_connector(api_key: str):
                     "action_type": "predict",
                     "method": "POST",
                     "url": "https://api.openai.com/v1/embeddings",
-                    "headers": {
-                        "Authorization": "Bearer ${credential.api_key}"
-                    },
+                    "headers": headers,
                     "request_body": "{ \"input\": ${parameters.input}, \"model\": \"${parameters.model}\" }",
                     "pre_process_function": "connector.pre_process.openai.embedding",
                     "post_process_function": "connector.post_process.openai.embedding"
@@ -355,6 +387,24 @@ def create_openai_connector(api_key: str):
             ],
         }
     )
+
+
+def delete_connectors(name: str):
+    """
+    Delete connectors from the service by name.
+    """
+    responses = []
+    connectors = search_connectors(name)['hits']['hits']
+    for connector in connectors:
+        connector_id = connector['_id']
+        responses.append(
+            request(
+                "delete",
+                f"_plugins/_ml/connectors/{connector_id}"
+            )
+        )
+
+    return responses
 
 
 def update_trusted_endpoints():
@@ -370,6 +420,23 @@ def update_trusted_endpoints():
                     "^https://api\\.openai\\.com/.*$",
                 ]
             }
+        }
+    )
+
+
+def update_cluster_settings():
+    """
+    Update the cluster settings in the OpenSearch service
+    with basic settings for local development
+    """
+    return request(
+        "put",
+        "_cluster/settings",
+        json={
+            "persistent": {
+                "plugins.ml_commons.allow_registering_model_via_url": True,
+                "plugins.ml_commons.only_run_on_ml_node": False,
+            },
         }
     )
 
@@ -443,10 +510,10 @@ def deploy_model(model_id: str):
     """
     Deploy a model in the OpenSearch service
     """
-    return ml_task(request(
+    return request(
         "post",
         f"_plugins/_ml/models/{model_id}/_deploy",
-    ))
+    )
 
 
 def undeploy_model(model_id: str):
